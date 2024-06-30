@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modern Jeopardy Game</title>
+    <style>
+        :root {
+            --primary-color: #ffd700;
+            --background-color: #000000;
+            --correct-color: #008000;
+            --incorrect-color: #8b0000;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: var(--background-color);
+            color: var(--primary-color);
+        }
+        .game-board {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 10px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .category {
+            background-color: var(--background-color);
+            color: var(--primary-color);
+            text-align: center;
+            padding: 10px;
+            font-weight: bold;
+            border: 2px solid var(--primary-color);
+            border-radius: 5px;
+        }
+        .question-card {
+            background-color: var(--background-color);
+            color: var(--primary-color);
+            border: 2px solid var(--primary-color);
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            font-size: 24px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            border-radius: 5px;
+            position: relative;
+            overflow: hidden;
+        }
+        .question-card:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 10px var(--primary-color);
+        }
+        .question-card::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: rgba(255, 255, 255, 0.1);
+            transform: rotate(45deg);
+            transition: all 0.3s ease;
+        }
+        .question-card:hover::after {
+            top: -100%;
+            left: -100%;
+        }
+        .question-card.correct {
+            background-color: var(--correct-color);
+        }
+        .question-card.incorrect {
+            background-color: var(--incorrect-color);
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.7);
+        }
+        .modal-content {
+            background-color: var(--background-color);
+            color: var(--primary-color);
+            margin: 15% auto;
+            padding: 20px;
+            border: 2px solid var(--primary-color);
+            width: 80%;
+            max-width: 600px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        .close {
+            color: var(--primary-color);
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .close:hover {
+            color: #bbb;
+        }
+        #answer-input {
+            width: 100%;
+            padding: 10px;
+            margin-top: 20px;
+            background-color: var(--background-color);
+            color: var(--primary-color);
+            border: 1px solid var(--primary-color);
+            border-radius: 5px;
+        }
+        #submit-answer {
+            margin-top: 10px;
+            padding: 10px 20px;
+            background-color: var(--primary-color);
+            color: var(--background-color);
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        #submit-answer:hover {
+            background-color: #cca900;
+            transform: scale(1.05);
+        }
+        #score {
+            text-align: center;
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div id="score">Score: $0</div>
+    <div class="game-board" id="gameBoard"></div>
+
+    <div id="questionModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2 id="modal-category"></h2>
+            <p id="modal-question"></p>
+            <input type="text" id="answer-input" placeholder="Your answer...">
+            <button id="submit-answer">Submit Answer</button>
+        </div>
+    </div>
+
+    <script>
+        const gameData = [
+            {
+                category: "History",
+                questions: [
+                    { points: 200, question: "This president was known as 'Honest Abe'", answer: "Abraham Lincoln", keywords: ["abraham", "lincoln"] },
+                    { points: 400, question: "This war lasted from 1939 to 1945", answer: "World War II", keywords: ["world", "war", "ii", "2"] },
+                    { points: 600, question: "This document begins with 'We the People'", answer: "Constitution", keywords: ["constitution"] },
+                    { points: 800, question: "This ancient wonder was a lighthouse", answer: "Lighthouse of Alexandria", keywords: ["lighthouse", "alexandria"] },
+                    { points: 1000, question: "This empire was ruled by Caesars", answer: "Roman Empire", keywords: ["roman", "empire"] }
+                ]
+            },
+            {
+                category: "Science",
+                questions: [
+                    { points: 200, question: "This planet is known as the Red Planet", answer: "Mars", keywords: ["mars"] },
+                    { points: 400, question: "This element has the symbol 'O'", answer: "Oxygen", keywords: ["oxygen"] },
+                    { points: 600, question: "This force keeps us on the ground", answer: "Gravity", keywords: ["gravity"] },
+                    { points: 800, question: "This is the powerhouse of the cell", answer: "Mitochondria", keywords: ["mitochondria"] },
+                    { points: 1000, question: "This theory explains the origin of the universe", answer: "Big Bang Theory", keywords: ["big", "bang"] }
+                ]
+            },
+            {
+                category: "Literature",
+                questions: [
+                    { points: 200, question: "This author wrote '1984'", answer: "George Orwell", keywords: ["george", "orwell"] },
+                    { points: 400, question: "This Shakespeare play features the line 'To be or not to be'", answer: "Hamlet", keywords: ["hamlet"] },
+                    { points: 600, question: "This novel by Harper Lee features Scout Finch", answer: "To Kill a Mockingbird", keywords: ["kill", "mockingbird"] },
+                    { points: 800, question: "This Russian author wrote 'War and Peace'", answer: "Leo Tolstoy", keywords: ["leo", "tolstoy"] },
+                    { points: 1000, question: "This poet wrote 'The Raven'", answer: "Edgar Allan Poe", keywords: ["edgar", "allan", "poe"] }
+                ]
+            },
+            {
+                category: "Geography",
+                questions: [
+                    { points: 200, question: "This is the largest ocean", answer: "Pacific Ocean", keywords: ["pacific"] },
+                    { points: 400, question: "This country is known as the Land of the Rising Sun", answer: "Japan", keywords: ["japan"] },
+                    { points: 600, question: "This is the longest river in the world", answer: "Nile", keywords: ["nile"] },
+                    { points: 800, question: "This mountain is the tallest in North America", answer: "Denali", keywords: ["denali", "mckinley"] },
+                    { points: 1000, question: "This African country is home to the Sahara Desert", answer: "Algeria", keywords: ["algeria"] }
+                ]
+            },
+            {
+                category: "Sports",
+                questions: [
+                    { points: 200, question: "This sport uses a shuttlecock", answer: "Badminton", keywords: ["badminton"] },
+                    { points: 400, question: "This country hosted the 2016 Summer Olympics", answer: "Brazil", keywords: ["brazil"] },
+                    { points: 600, question: "This NBA team won the most championships", answer: "Boston Celtics", keywords: ["boston", "celtics"] },
+                    { points: 800, question: "This tennis player has won the most Grand Slam titles", answer: "Novak Djokovic", keywords: ["novak", "djokovic"] },
+                    { points: 1000, question: "This sport is played on a velodrome", answer: "Track Cycling", keywords: ["track", "cycling"] }
+                ]
+            },
+            {
+                category: "Entertainment",
+                questions: [
+                    { points: 200, question: "This actor played Iron Man in the Marvel Cinematic Universe", answer: "Robert Downey Jr.", keywords: ["robert", "downey"] },
+                    { points: 400, question: "This TV show features the catchphrase 'Winter is coming'", answer: "Game of Thrones", keywords: ["game", "thrones"] },
+                    { points: 600, question: "This singer's real name is Stefani Germanotta", answer: "Lady Gaga", keywords: ["lady", "gaga"] },
+                    { points: 800, question: "This director is known for films like 'Pulp Fiction' and 'Django Unchained'", answer: "Quentin Tarantino", keywords: ["quentin", "tarantino"] },
+                    { points: 1000, question: "This animated film features the song 'Let It Go'", answer: "Frozen", keywords: ["frozen"] }
+                ]
+            }
+        ];
+
+        let currentQuestion;
+        let score = 0;
+        let currentCard;
+
+        const gameBoard = document.getElementById('gameBoard');
+        const modal = document.getElementById('questionModal');
+        const closeBtn = document.getElementsByClassName('close')[0];
+        const modalCategory = document.getElementById('modal-category');
+        const modalQuestion = document.getElementById('modal-question');
+        const answerInput = document.getElementById('answer-input');
+        const submitAnswer = document.getElementById('submit-answer');
+        const scoreDisplay = document.getElementById('score');
+
+        function createGameBoard() {
+            // Add category names
+            gameData.forEach(category => {
+                const categoryElement = document.createElement('div');
+                categoryElement.className = 'category';
+                categoryElement.textContent = category.category;
+                gameBoard.appendChild(categoryElement);
+            });
+
+            // Add question cards
+            for (let i = 0; i < 5; i++) {
+                gameData.forEach(category => {
+                    const question = category.questions[i];
+                    const questionCard = document.createElement('div');
+                    questionCard.className = 'question-card';
+                    questionCard.textContent = '$' + question.points;
+                    questionCard.addEventListener('click', () => showQuestion(category, question, questionCard));
+                    gameBoard.appendChild(questionCard);
+                });
+            }
+        }
+
+        function showQuestion(category, question, card) {
+            currentQuestion = question;
+            currentCard = card;
+            modalCategory.textContent = category.category;
+            modalQuestion.textContent = question.question;
+            answerInput.value = '';
+            modal.style.display = 'block';
+        }
+
+        function checkAnswer() {
+            const userAnswer = answerInput.value.trim().toLowerCase();
+            const correctKeywords = currentQuestion.keywords;
+            
+            const isCorrect = correctKeywords.some(keyword => userAnswer.includes(keyword.toLowerCase()));
+            
+            if (isCorrect) {
+                score += currentQuestion.points;
+                currentCard.classList.add('correct');
+                alert('Correct! You earned $' + currentQuestion.points);
+            } else {
+                currentCard.classList.add('incorrect');
+                alert('Incorrect. The correct answer is: ' + currentQuestion.answer);
+            }
+
+            scoreDisplay.textContent = 'Score: $' + score;
+            modal.style.display = 'none';
+            currentCard.textContent = '';
+            currentCard.style.cursor = 'default';
+            currentCard.removeEventListener('click', showQuestion);
+        }
+
+        closeBtn.onclick = () => modal.style.display = 'none';
+        window.onclick = (event) => {
+            if (event.target == modal) {
+                modal.style.display = 'none';
+            }
+        };
+
+        submitAnswer.addEventListener('click', checkAnswer);
+        answerInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                checkAnswer();
+            }
+        });
+
+        createGameBoard();
+    </script>
+</body>
+</html>
